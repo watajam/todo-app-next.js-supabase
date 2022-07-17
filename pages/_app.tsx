@@ -1,5 +1,10 @@
 import '../styles/globals.css'
+import { useEffect } from 'react'
+import { useRouter } from 'next/router'
 import type { AppProps, NextWebVitalsMetric } from 'next/app'
+import { QueryClient, QueryClientProvider } from 'react-query'
+import { ReactQueryDevtools } from 'react-query/devtools'
+import { supabase } from '../utils/supabase'
 
 export function reportWebVitals(metric: NextWebVitalsMetric) {
   switch (metric.name) {
@@ -24,8 +29,47 @@ export function reportWebVitals(metric: NextWebVitalsMetric) {
   }
 }
 
+//プロジェクト全体のqueryClientの設定
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false, //fetch失敗した場合に何回かリトライするか
+      refetchOnWindowFocus: false, //ぺージがフォーカスされたら再取得するか
+    },
+  },
+})
+
 function MyApp({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />
+  const { push, pathname } = useRouter()
+  //ログインしていたら自動でホームに飛ばす
+  const validateSession = async () => {
+    const user = supabase.auth.user() //ログインしているユーザーを取得
+    if (user && pathname === '/') {
+      push('/dashboard')
+    } else if (!user && pathname !== '/') {
+      await push('/')
+    }
+  }
+  //supabaseがログインしているユーザーのセッションの変化を監視（ログイン時とログアウト時）
+  supabase.auth.onAuthStateChange((event, _) => {
+    if (event === 'SIGNED_IN' && pathname === '/') {
+      push('/dashboard')
+    }
+    if (event === 'SIGNED_OUT') {
+      push('/')
+    }
+  })
+
+  //ブラウザをリロードした際に最初に実行したい
+  useEffect(() => {
+    validateSession()
+  }, [])
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Component {...pageProps} />
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  )
 }
 
 export default MyApp
