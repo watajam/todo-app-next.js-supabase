@@ -24,6 +24,8 @@ type StaticProps = {
   notices: Notice[]
 }
 
+//test
+
 
 const Ssg: NextPage<StaticProps> = ({ tasks, notices }) => {
   const router = useRouter()
